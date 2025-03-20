@@ -1,0 +1,7 @@
+[project]
+name = "moeviz"
+version = "0.1.0"
+description = "visualize token routing in mixture-of-experts models"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
