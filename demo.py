@@ -2,32 +2,21 @@ import time
 import torch
 import torch.nn.functional as F
 
+from collections import deque
 from torch import nn
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
-# (layer_id, forward_pass_iteration -> selected_experts
-logits = dict()
-count = 0
-
-# def get_logits(layer_id):
-#     global count
-
-#     def hook(module, input, output):
-#         global count
-#         logits[(layer_id, count)] = output.detach().cpu()
-#         count += 1
-
-#     return hook
+# (layer_id, tokens, selected_experts)
+experts_list = deque()
+scratch = deque()
 
 def get_experts(layer_id):
-    global count
 
     def hook(module, input, output):
-        global count
-        selected_experts = process_router_logits(output, top_k=4)
-        logits[(layer_id, count)] = selected_experts.detach().cpu()
-        count += 1
+        selected_experts = process_router_logits(output.clone().detach(), top_k=4)
+        tokens = scratch.popleft()
+        experts_list.append((layer_id, tokens, selected_experts.cpu()))
 
     return hook
 
@@ -37,6 +26,14 @@ def process_router_logits(router_logits, top_k):
     routing_weights = F.softmax(router_logits, dim=1, dtype=torch.float)
     routing_weights, selected_experts = torch.topk(routing_weights, top_k, dim=-1)
     return selected_experts
+
+
+def get_token():
+
+    def hook(module, input):
+        scratch.append(input[0].clone().detach().cpu())
+    
+    return hook
 
 
 model_name = "Qwen/Qwen1.5-MoE-A2.7B"
@@ -51,8 +48,8 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 i = 0
 # register hook
-# h = (model.model.layers[i].mlp.gate).register_forward_hook(get_logits(i))
-h = (model.model.layers[i].mlp.gate).register_forward_hook(get_experts(i))
+token_hook = (model.model.embed_tokens).register_forward_pre_hook(get_token())
+router_hook = (model.model.layers[i].mlp.gate).register_forward_hook(get_experts(i))
 
 
 prompt = "Give me a short introduction to large language model."
@@ -75,9 +72,6 @@ generated_ids = model.generate(
     **model_inputs,
     max_new_tokens=512
 )
-
-# for _, logit in logits.items():
-#     process_router_logits(logit, top_k=4)
 torch.cuda.synchronize()
 t2 = time.time()
 
@@ -90,5 +84,5 @@ print(f"runtime: {t2 - t1}")
 # ]
 # response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
-print(logits[(0, 0)])
-print(logits[(0, 1)])
+print(experts_list)
+print(scratch)
