@@ -10,8 +10,41 @@ function generateData() {
   }));
 }
 
+// Initialize the visualization
+export function initVisualization() {
+  margin = { top: 40, right: 30, bottom: 60, left: 60 };
+  width = 900 - margin.left - margin.right;
+  height = 500 - margin.top - margin.bottom;
+
+  // Remove any existing SVG
+  d3.select('#container svg').remove();
+
+  // Create new SVG
+  svg = d3.create("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom);
+  
+  // Add a group element for margin handling
+  g = svg.append("g")
+    .attr("transform", `translate(${margin.left}, ${margin.top})`);
+  
+  // Get the container and append the SVG
+  const container = document.getElementById('container');
+  container.append(svg.node());
+
+  return { svg, g, width, height, margin };
+}
+
+// Clear the visualization
+export function clearVisualization() {
+  d3.select('#container svg').remove();
+  const { svg: newSvg, g: newG } = initVisualization();
+  svg = newSvg;
+  g = newG;
+}
+
 // create visualization
-function createVisualization(data, svg, g, width, height, margin) {
+export function createVisualization(data, svg, g, width, height, margin) {
   
   const expertGroups = d3.group(data, d => d.expert_id);
   const expertIds = Array.from({ length: 16 }, (_, i) => i + 1);
@@ -59,9 +92,9 @@ function createVisualization(data, svg, g, width, height, margin) {
         .attr("x", xPos)
         .attr("y", height - (i + 1) * blockHeight)
         .attr("width", blockWidth)
-        .attr("height", blockHeight - 2)  // Small gap between blocks
+        .attr("height", blockHeight - 2) // small gap between blocks
         .attr("fill", colorScale(d.token_pos))
-        .attr("stroke", "#fff")
+        // .attr("stroke", "#fff")
         .attr("stroke-width", 1)
         .attr("rx", 2)
         .attr("ry", 2)
@@ -86,6 +119,7 @@ function createVisualization(data, svg, g, width, height, margin) {
       .attr("y", 30)
       .attr("text-anchor", "middle")
       .style("font-size", "12px")
+      .style("fill", "white")
       .text(group.length);
   });
   
@@ -101,6 +135,7 @@ function createVisualization(data, svg, g, width, height, margin) {
     .attr("x", width / 2)
     .attr("y", height + margin.bottom - 15)
     .attr("text-anchor", "middle")
+    .style("fill", "white")
     .text("Expert ID");
   
   // title
@@ -109,6 +144,7 @@ function createVisualization(data, svg, g, width, height, margin) {
     .attr("y", -margin.top / 2)
     .attr("text-anchor", "middle")
     .style("font-size", "16px")
+    .style("fill", "white")
     .text("Distribution of Token IDs by Expert ID");
   
   // color legend
@@ -155,6 +191,7 @@ function createVisualization(data, svg, g, width, height, margin) {
     .attr("y", legendHeight + 25)
     .attr("text-anchor", "middle")
     .style("font-size", "10px")
+    .style("fill", "white")
     .text("Token Position");
 }
 
