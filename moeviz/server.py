@@ -127,6 +127,9 @@ async def generate_text(request: PromptRequest):
     generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
 
     await sio.emit('generation_complete')
+    
+    token_hook.remove()
+    router_hook.remove()
         
     return {"message": generated_text}
 
