@@ -1,6 +1,5 @@
 import './style.css'
 import { io } from 'socket.io-client'
-import viteLogo from '/vite.svg'
 
 document.querySelector('#app').innerHTML = `
   <div class="container">
@@ -22,13 +21,14 @@ document.querySelector('#app').innerHTML = `
   </div>
 `
 
-// Import the D3 visualization after the DOM is updated
-import { createVisualization, clearVisualization } from './histogram.js'
+import { initVisualization, createVisualization, clearVisualization } from './histogram.js'
 
-// Connect to Socket.io server
-const socket = io()
-let routingData = []
-let isGenerating = false
+const socket = io('http://0.0.0.0:8000', {
+  transports: ['websocket'],
+  upgrade: false
+});
+let routingData = [];
+let isGenerating = false;
 
 // DOM elements
 const promptInput = document.getElementById('prompt-input')
@@ -47,88 +47,138 @@ socket.on('disconnect', () => {
 })
 
 socket.on('routing_update', (data) => {
-  console.log('Received routing data:', data)
+  console.log('Received routing update:', data)
   
-  routingData = [...routingData, ...data.routing_data]
+  // tokens
+  // 1d array of token ids
+
+  // selected_experts
+  // 2d array where each array contains expert ids for token
   
-  clearVisualization()
-  createVisualization(routingData)
+  const newRoutingData = processRoutingData(data);
   
-  statusElement.textContent = `Generating: ${data.progress || ''}`
+  routingData = [...routingData, ...newRoutingData];
+  
+  // update visualization
+  clearVisualization();
+  createVisualization(routingData);
+  
+  statusElement.textContent = `Processing...`;
 })
 
+function processRoutingData(data) {
+  const transformedData = [];
+  const tokenIds = Array.isArray(data.tokens) ? data.tokens : [data.tokens];
+  const selectedExperts = data.selected_experts;
+  
+  // experts
+  // dim 0 corresponds to tokens
+  // dim 1 corresponds to experts for each token
+  
+  if (Array.isArray(tokenIds)) {
+    // for each token
+    tokenIds.forEach((tokenId, tokenIndex) => {
+      // Get experts for this token
+      let expertsForToken;
+      
+      if (Array.isArray(selectedExperts[0])) {
+        // experts 2d array
+        expertsForToken = selectedExperts[tokenIndex] || [];
+      } else {
+        // all tokens might share same experts
+        expertsForToken = selectedExperts;
+      }
+      
+      // create an entry for each expert this token is routed to
+      expertsForToken.forEach(expertId => {
+        transformedData.push({
+          layer_id: data.layer_id,
+          token_id: tokenId,
+          expert_id: expertId,
+          token_pos: routingData.length + tokenIndex
+        });
+      });
+    });
+  } else {
+    // scalar token
+    const tokenId = tokenIds;
+    const expertsForToken = Array.isArray(selectedExperts[0]) ? 
+      selectedExperts[0] : selectedExperts;
+    
+    expertsForToken.forEach(expertId => {
+      transformedData.push({
+        layer_id: data.layer_id,
+        token_id: tokenId,
+        expert_id: expertId,
+        token_pos: routingData.length
+      });
+    });
+  }
+  
+  return transformedData;
+}
+
 socket.on('generation_complete', () => {
-  isGenerating = false
-  submitButton.disabled = false
-  statusElement.textContent = 'Generation complete'
+  isGenerating = false;
+  submitButton.disabled = false;
+  statusElement.textContent = 'Generation complete';
 })
 
 // event listeners
 submitButton.addEventListener('click', () => {
-  const prompt = promptInput.value.trim()
+  const prompt = promptInput.value.trim();
   if (!prompt) {
-    statusElement.textContent = 'Please enter a prompt'
-    return
+    statusElement.textContent = 'Please enter a prompt';
+    return;
   }
   
-  startGeneration(prompt)
+  startGeneration(prompt);
 })
 
 promptInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
-    const prompt = promptInput.value.trim()
+    const prompt = promptInput.value.trim();
     if (prompt) {
-      startGeneration(prompt)
+      startGeneration(prompt);
     }
   }
 })
 
 async function startGeneration(prompt) {
-  if (isGenerating) return
+  if (isGenerating) return;
   
-  isGenerating = true
-  submitButton.disabled = true
-  statusElement.textContent = 'Starting generation...'
+  isGenerating = true;
+  submitButton.disabled = true;
+  statusElement.textContent = 'Starting generation...';
   
-  // Clear previous data
-  routingData = []
-  clearVisualization()
+  // clear previous data
+  routingData = [];
+  clearVisualization();
   
   try {
-    const response = await fetch('http://0.0.0.0:8000/api/generate', {
+    const response = await fetch('http://0.0.0.0:8000/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ prompt }),
-    })
+    });
     
     if (!response.ok) {
-      throw new Error('Failed to start generation')
+      throw new Error('Failed to start generation');
     }
     
-    const result = await response.json()
-    statusElement.textContent = `Generation started: ${result.message || ''}`
+    const result = await response.json();
+    statusElement.textContent = `Generation started: ${result.message || ''}`;
     
   } catch (error) {
-    console.error('Error starting generation:', error)
-    statusElement.textContent = `Error: ${error.message}`
-    isGenerating = false
-    submitButton.disabled = false
+    console.error('Error starting generation:', error);
+    statusElement.textContent = `Error: ${error.message}`;
+    isGenerating = false;
+    submitButton.disabled = false;
   }
 }
 
-// generate some sample data for initial display
-function generateSampleData() {
-  return Array.from({ length: 64 }, () => ({
-    layer_id: Math.floor(Math.random() * 12),
-    token_id: Math.floor(Math.random() * 1000),
-    expert_id: Math.floor(Math.random() * 16 + 1),
-    token_pos: Math.floor(Math.random() * 128)
-  }))
-}
-
-// initialize with sample data
 document.addEventListener('DOMContentLoaded', () => {
-  createVisualization(generateSampleData())
+  initVisualization();
 })
