@@ -5,7 +5,6 @@ import torch
 import torch.nn.functional as F
 import uvicorn
 
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +13,14 @@ from pydantic import BaseModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import Dict, Any
 
+
+class GenerateRequest(BaseModel):
+    prompt: str
+    model: str
+
+
 thread_pool = ThreadPoolExecutor(max_workers=1)
+
 
 app = FastAPI()
 
@@ -31,23 +37,10 @@ socket_app = socketio.ASGIApp(sio)
 
 app.mount("/socket.io", socket_app)
 
-class PromptRequest(BaseModel):
-    prompt: str
 
-model_name = "Qwen/Qwen1.5-MoE-A2.7B"
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    torch_dtype="auto",
-    device_map="auto"
-)
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model_loaded = True
-
-# (layer_id, tokens, selected_experts)
-scratch = deque()
+tokens_queue = Queue()
 routing_queue = Queue()
 
-# Background task to process the queue
 async def process_routing_queue():
     while True:
         if not routing_queue.empty():
@@ -60,11 +53,44 @@ async def startup_event():
     print("starting up and creating task")
     asyncio.create_task(process_routing_queue())
 
+
+model_configs = {
+    'qwen-1.5-moe-a2.7b': {
+        'name': 'Qwen1.5-MoE-A2.7B',
+        'expert_count': 60,
+        'path': 'Qwen/Qwen1.5-MoE-A2.7B'
+    },
+}
+
+loaded_models = {}
+
+def load_model(model_id):
+    if model_id not in model_configs:
+        raise ValueError(f"Unknown model: {model_id}")
+    
+    if model_id in loaded_models:
+        return loaded_models[model_id]
+    
+    try:
+        model_name = model_configs[model_id]["path"]
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype="auto",
+            device_map="auto"
+        )
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        loaded_models[model_id] = (model, tokenizer)
+        return loaded_models[model_id]
+    except Exception as e:
+        print(f"Error loading model {model_id}: {e}")
+        return None
+
+
 def get_experts(layer_id):
 
     def hook(module, input, output):
         selected_experts = process_router_logits(output.clone().detach(), top_k=4)
-        tokens = scratch.popleft()
+        tokens = tokens_queue.get()
         
         routing_data = {
             "layer_id": layer_id,
@@ -86,7 +112,7 @@ def process_router_logits(router_logits, top_k):
 def get_token():
 
     def hook(module, input):
-        scratch.append(input[0].clone().detach().cpu().squeeze().tolist())
+        tokens_queue.put(input[0].clone().detach().cpu().squeeze().tolist())
     
     return hook
 
@@ -100,11 +126,13 @@ async def disconnect(sid):
     print(f"Client disconnected: {sid}")
 
 @app.post("/generate")
-async def generate_text(request: PromptRequest):
+async def generate_text(request: GenerateRequest):
     prompt = request.prompt
+    model_id = request.model
     print(f"Received prompt: {prompt}")
     
-    scratch.clear()
+    tokens_queue.empty()
+    model, tokenizer = load_model(model_id)
         
     i = 0
     # register hook

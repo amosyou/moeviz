@@ -3,9 +3,24 @@ import * as d3 from 'd3';
 // global variables to store histogram state
 let svg, g, width, height, margin;
 
+// config
+const config = {
+  minBlockWidth: 45,     // increased minimum width for larger token IDs
+  blockHeight: 22,       // increased height
+  expertPadding: 0.15,   // reduced padding to fit more experts
+  textSizeThreshold: 40, // minimum width for text to display
+  expertCount: 16        // default expert count, can be changed via setExpertCount
+};
+
+// set the expert count for the model
+export function setExpertCount(count) {
+  config.expertCount = count;
+  return config.expertCount;
+}
+
 export function initVisualization() {
   margin = { top: 40, right: 30, bottom: 60, left: 60 };
-  width = 1200 - margin.left - margin.right;
+  width = 900 - margin.left - margin.right;
   height = 500 - margin.top - margin.bottom;
 
   d3.select('#container svg').remove();
@@ -14,29 +29,67 @@ export function initVisualization() {
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom);
   
+  // add a group element for margin handling
   g = svg.append("g")
     .attr("transform", `translate(${margin.left}, ${margin.top})`);
   
+  // get container and append SVG
   const container = document.getElementById('container');
   container.append(svg.node());
+  
+  // set up container for horizontal scrolling if needed
+  setupScrollableContainer(config.expertCount);
   
   drawEmptyVisualization();
 
   return { svg, g, width, height, margin };
 }
 
+// set up the container for scrolling based on expert count
+function setupScrollableContainer(expertCount) {
+  // calculate required width for all experts
+  const calculatedWidth = width / expertCount * (1 - config.expertPadding);
+  const blockWidth = Math.max(calculatedWidth, config.minBlockWidth);
+  const totalWidth = blockWidth * expertCount * (1 / (1 - config.expertPadding));
+  const needsScrolling = totalWidth > width;
+  
+  if (needsScrolling) {
+    svg.attr("width", totalWidth + margin.left + margin.right);
+    
+    const container = document.getElementById('container');
+    container.style.overflowX = "auto";
+    container.style.overflowY = "hidden";
+    
+    if (!document.querySelector('.scroll-indicator')) {
+      const indicator = document.createElement('div');
+      indicator.className = 'scroll-indicator';
+      indicator.textContent = '↔️ Scroll to see all experts';
+      container.appendChild(indicator);
+      
+      setTimeout(() => {
+        indicator.style.opacity = '0';
+        indicator.style.transition = 'opacity 1s';
+      }, 5000);
+    }
+  }
+}
+
 function drawEmptyVisualization() {
-  const expertIds = Array.from({ length: 30 }, (_, i) => i + 1);
+  const expertIds = Array.from({ length: config.expertCount }, (_, i) => i + 1);
+  const calculatedWidth = width / expertIds.length * (1 - config.expertPadding);
+  const blockWidth = Math.max(calculatedWidth, config.minBlockWidth);
+  const totalWidth = blockWidth * expertIds.length * (1 / (1 - config.expertPadding));
+  const actualWidth = Math.max(width, totalWidth);
   
   // x-scale for expert_ids
   const x = d3.scaleBand()
     .domain(expertIds.map(String))
-    .range([0, width])
-    .padding(0.2);
+    .range([0, actualWidth])
+    .padding(config.expertPadding);
   
   // y-scale for empty visualization
   const y = d3.scaleLinear()
-    .domain([0, 10]) // Default scale for empty chart
+    .domain([0, 10])
     .range([height, 0]);
   
   // x-axis
@@ -48,7 +101,7 @@ function drawEmptyVisualization() {
   
   // x-axis label
   g.append("text")
-    .attr("x", width / 2)
+    .attr("x", Math.min(width, actualWidth) / 2)
     .attr("y", height + margin.bottom - 15)
     .attr("text-anchor", "middle")
     .style("fill", "white")
@@ -56,7 +109,7 @@ function drawEmptyVisualization() {
   
   // title
   g.append("text")
-    .attr("x", width / 2)
+    .attr("x", Math.min(width, actualWidth) / 2)
     .attr("y", -margin.top / 2)
     .attr("text-anchor", "middle")
     .style("font-size", "16px")
@@ -65,7 +118,7 @@ function drawEmptyVisualization() {
     
   // empty state message
   g.append("text")
-    .attr("x", width / 2)
+    .attr("x", Math.min(width, actualWidth) / 2)
     .attr("y", height / 2)
     .attr("text-anchor", "middle")
     .attr("dominant-baseline", "middle")
@@ -102,14 +155,21 @@ export function createVisualization(data) {
     return;
   }
   
-  const expertGroups = d3.group(data, d => d.expert_id);
-  const expertIds = Array.from({ length: 30 }, (_, i) => i + 1);
+  // use predefined expert count from config rather than just data
+  const expertIds = Array.from({ length: config.expertCount }, (_, i) => i + 1);
+  const calculatedWidth = width / expertIds.length * (1 - config.expertPadding);
+  const blockWidth = Math.max(calculatedWidth, config.minBlockWidth);
+  const totalWidth = blockWidth * expertIds.length * (1 / (1 - config.expertPadding));
+  const actualWidth = Math.max(width, totalWidth);
   
   // x-scale for expert_ids
   const x = d3.scaleBand()
     .domain(expertIds.map(String))
-    .range([0, width])
-    .padding(0.2);
+    .range([0, actualWidth])
+    .padding(config.expertPadding);
+  
+  // group data by expert_id
+  const expertGroups = d3.group(data, d => d.expert_id);
   
   // maximum count for y-scale
   const expertCounts = {};
@@ -125,15 +185,11 @@ export function createVisualization(data) {
     .domain([0, maxCount])
     .range([height, 0]);
   
-  // block dimensions
-  const blockWidth = x.bandwidth();
-  const blockHeight = 20;  // fixed height for each block
-  
   // color scale based on token_pos values
   const colorScale = d3.scaleSequential(d3.interpolateViridis)
     .domain([0, d3.max(data, d => d.token_pos) || 1]); // Ensure valid domain even with no data
   
-  // draw blocks for each expert_id
+  // draw visualization for each expert_id
   expertIds.forEach(expertId => {
     const group = expertGroups.get(expertId) || [];
     const xPos = x(String(expertId));
@@ -143,29 +199,50 @@ export function createVisualization(data) {
     
     // vertically stacked blocks
     group.forEach((d, i) => {
-      
-      g.append("rect")
+      // create block
+      const block = g.append("rect")
         .attr("x", xPos)
-        .attr("y", height - (i + 1) * blockHeight)
+        .attr("y", height - (i + 1) * config.blockHeight)
         .attr("width", blockWidth)
-        .attr("height", blockHeight - 2) // small gap between blocks
+        .attr("height", config.blockHeight - 2) // small gap between blocks
         .attr("fill", colorScale(d.token_pos))
         .attr("stroke-width", 1)
         .attr("rx", 2)
-        .attr("ry", 2)
-        .append("title")
-        .text(`Token ID: ${d.token_id}, Expert ID: ${d.expert_id}, Position: ${d.token_pos}`);
+        .attr("ry", 2);
       
-      // token_id text
-      g.append("text")
-        .attr("x", xPos + blockWidth / 2)
-        .attr("y", height - (i + 0.5) * blockHeight)
-        .attr("text-anchor", "middle")
-        .attr("dominant-baseline", "middle")
-        .style("font-size", "12px")
-        .style("fill", "white")
-        .style("font-weight", "bold")
-        .text(d.token_id);
+      // tooltip with detailed info
+      block.append("title")
+        .text(`Token ID: ${d.token_id}, Expert ID: ${d.expert_id}, Position: ${d.token_pos}, Layer: ${d.layer_id}`);
+      
+      // token_id text (only if block is wide enough)
+      if (blockWidth >= config.textSizeThreshold) {
+        // full-sized text for larger blocks
+        g.append("text")
+          .attr("x", xPos + blockWidth / 2)
+          .attr("y", height - (i + 0.5) * config.blockHeight)
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "middle")
+          .style("font-size", "12px")
+          .style("fill", "white")
+          .style("font-weight", "bold")
+          .text(d.token_id);
+      } else if (blockWidth >= 25) {
+        // For medium blocks, show abbreviated token ID
+        const tokenText = String(d.token_id);
+        const abbrevText = tokenText.length > 3 ? 
+          tokenText.substring(0, 3) + "…" : 
+          tokenText;
+          
+        g.append("text")
+          .attr("x", xPos + blockWidth / 2)
+          .attr("y", height - (i + 0.5) * config.blockHeight)
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "middle")
+          .style("font-size", "10px") // Smaller font
+          .style("fill", "white")
+          .style("font-weight", "bold")
+          .text(abbrevText);
+      }
     });
     
     // count labels
@@ -187,7 +264,7 @@ export function createVisualization(data) {
   
   // x-axis label
   g.append("text")
-    .attr("x", width / 2)
+    .attr("x", Math.min(width, actualWidth) / 2)
     .attr("y", height + margin.bottom - 15)
     .attr("text-anchor", "middle")
     .style("fill", "white")
@@ -195,21 +272,21 @@ export function createVisualization(data) {
   
   // title
   g.append("text")
-    .attr("x", width / 2)
+    .attr("x", Math.min(width, actualWidth) / 2)
     .attr("y", -margin.top / 2)
     .attr("text-anchor", "middle")
     .style("font-size", "16px")
     .style("fill", "white")
     .text("Distribution of Token IDs by Expert ID");
   
-  // Only create color legend if we have data
+  // only create color legend if we have data
   if (data.length > 0) {
     // color legend
     const legendWidth = 200;
     const legendHeight = 15;
     
     const legend = g.append("g")
-      .attr("transform", `translate(${width - legendWidth}, ${-margin.top})`);
+      .attr("transform", `translate(${Math.min(width, actualWidth) - legendWidth - 10}, ${-margin.top})`);
     
     // gradient for legend
     const defs = g.append("defs");

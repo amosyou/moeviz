@@ -1,9 +1,25 @@
 import './style.css'
 import { io } from 'socket.io-client'
+import { initVisualization, createVisualization, clearVisualization, setExpertCount } from './histogram.js'
 
+const modelConfigs = {
+  'qwen-1.5-moe-a2.7b': { name: 'Qwen1.5-MoE-A2.7B', expertCount: 60 },
+};
+
+// Create HTML content with model selector
 document.querySelector('#app').innerHTML = `
   <div class="container">
     <h1>moeviz</h1>
+    
+    <div class="model-selector-container">
+      <label for="model-selector">Select Model:</label>
+      <select id="model-selector" class="model-selector">
+        ${Object.entries(modelConfigs).map(([id, config]) => 
+          `<option value="${id}" data-expert-count="${config.expertCount}">${config.name}</option>`
+        ).join('')}
+      </select>
+      <div id="model-info" class="model-info">Expert count: ${modelConfigs['qwen-1.5-moe-a2.7b'].expertCount}</div>
+    </div>
     
     <div class="prompt-container">
       <input type="text" id="prompt-input" class="prompt-input" placeholder="Enter a prompt for the model...">
@@ -21,71 +37,87 @@ document.querySelector('#app').innerHTML = `
   </div>
 `
 
-import { initVisualization, createVisualization, clearVisualization } from './histogram.js'
-
 const socket = io('http://0.0.0.0:8000', {
   transports: ['websocket'],
   upgrade: false
 });
 let routingData = [];
 let isGenerating = false;
+let currentModel = 'qwen-1.5-moe-a2.7b';
 
 // DOM elements
-const promptInput = document.getElementById('prompt-input')
-const submitButton = document.getElementById('submit-prompt')
-const statusElement = document.getElementById('status')
+const promptInput = document.getElementById('prompt-input');
+const submitButton = document.getElementById('submit-prompt');
+const statusElement = document.getElementById('status');
+const modelSelector = document.getElementById('model-selector');
+const modelInfo = document.getElementById('model-info');
+
+// initialize with default model expert count
+setExpertCount(modelConfigs[currentModel].expertCount);
+
+// handle model selection change
+modelSelector.addEventListener('change', (e) => {
+  currentModel = e.target.value;
+  const expertCount = parseInt(e.target.selectedOptions[0].dataset.expertCount);
+  
+  modelInfo.textContent = `Expert count: ${expertCount}`;
+  
+  setExpertCount(expertCount);
+  clearVisualization();
+  
+  routingData = [];
+  
+  statusElement.textContent = `Model changed to ${e.target.selectedOptions[0].text}`;
+});
 
 // socket.io event listeners
 socket.on('connect', () => {
-  console.log('Connected to server')
-  statusElement.textContent = 'Ready'
-})
+  console.log('Connected to server');
+  statusElement.textContent = 'Ready';
+});
 
 socket.on('disconnect', () => {
-  console.log('Disconnected from server')
-  statusElement.textContent = 'Disconnected'
-})
+  console.log('Disconnected from server');
+  statusElement.textContent = 'Disconnected';
+});
 
 socket.on('routing_update', (data) => {
-  console.log('Received routing update:', data)
+  console.log('Received routing update:', data);
   
-  // tokens
-  // 1d array of token ids
-
-  // selected_experts
-  // 2d array where each array contains expert ids for token
+  const transformedData = processRoutingData(data);
   
-  const newRoutingData = processRoutingData(data);
+  routingData = [...routingData, ...transformedData];
   
-  routingData = [...routingData, ...newRoutingData];
-  
-  // update visualization
   clearVisualization();
   createVisualization(routingData);
   
   statusElement.textContent = `Processing...`;
-})
+});
 
 function processRoutingData(data) {
   const transformedData = [];
+
+  // tokens
+  // 1d or scalar
   const tokenIds = Array.isArray(data.tokens) ? data.tokens : [data.tokens];
-  const selectedExperts = data.selected_experts;
-  
+
   // experts
+  // 2d
   // dim 0 corresponds to tokens
   // dim 1 corresponds to experts for each token
-  
+  const selectedExperts = data.selected_experts;
+
   if (Array.isArray(tokenIds)) {
     // for each token
     tokenIds.forEach((tokenId, tokenIndex) => {
-      // Get experts for this token
+      // get experts for this token
       let expertsForToken;
       
       if (Array.isArray(selectedExperts[0])) {
-        // experts 2d array
+        // handle case where experts 2d array
         expertsForToken = selectedExperts[tokenIndex] || [];
       } else {
-        // all tokens might share same experts
+        // handle case where all tokens might share the same experts
         expertsForToken = selectedExperts;
       }
       
@@ -100,7 +132,7 @@ function processRoutingData(data) {
       });
     });
   } else {
-    // scalar token
+    // handle scalar token case
     const tokenId = tokenIds;
     const expertsForToken = Array.isArray(selectedExperts[0]) ? 
       selectedExperts[0] : selectedExperts;
@@ -122,7 +154,7 @@ socket.on('generation_complete', () => {
   isGenerating = false;
   submitButton.disabled = false;
   statusElement.textContent = 'Generation complete';
-})
+});
 
 // event listeners
 submitButton.addEventListener('click', () => {
@@ -133,7 +165,7 @@ submitButton.addEventListener('click', () => {
   }
   
   startGeneration(prompt);
-})
+});
 
 promptInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
@@ -142,7 +174,7 @@ promptInput.addEventListener('keydown', (e) => {
       startGeneration(prompt);
     }
   }
-})
+});
 
 async function startGeneration(prompt) {
   if (isGenerating) return;
@@ -151,7 +183,6 @@ async function startGeneration(prompt) {
   submitButton.disabled = true;
   statusElement.textContent = 'Starting generation...';
   
-  // clear previous data
   routingData = [];
   clearVisualization();
   
@@ -161,7 +192,10 @@ async function startGeneration(prompt) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ 
+        prompt,
+        model: currentModel,
+      }),
     });
     
     if (!response.ok) {
@@ -181,4 +215,4 @@ async function startGeneration(prompt) {
 
 document.addEventListener('DOMContentLoaded', () => {
   initVisualization();
-})
+});

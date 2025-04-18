@@ -41,7 +41,6 @@ h1 {
   text-align: center;
 }
 
-/* MoE Visualization specific styles */
 .container {
   max-width: 1000px;
   margin: 0 auto;
@@ -49,6 +48,37 @@ h1 {
   justify-content: center;
   flex-direction: column;
   align-items: center;
+}
+
+#container {
+  width: 100%;
+  margin: 20px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+#container svg {
+  min-width: 900px;
+}
+
+#container::-webkit-scrollbar {
+  height: 8px;
+}
+
+#container::-webkit-scrollbar-track {
+  background: #2a2a2a;
+  border-radius: 10px;
+}
+
+#container::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 10px;
+}
+
+#container::-webkit-scrollbar-thumb:hover {
+  background: #777;
 }
 
 .description {
@@ -79,7 +109,7 @@ h1 {
 .submit-button {
   border-radius: 8px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
+  padding: 0.4em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
@@ -110,7 +140,23 @@ h1 {
   color: #888;
 }
 
-/* Animation */
+.scroll-indicator {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  padding: 5px 10px;
+  background-color: rgba(0, 0, 0, 0.4);
+  border-radius: 5px 0 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+  animation: fadeInOut 2s infinite;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
 .loading {
   animation: pulse 1.5s infinite;
 }
@@ -121,7 +167,6 @@ h1 {
   100% { opacity: 1; }
 }
 
-/* Responsive design */
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -142,6 +187,12 @@ h1 {
     background-color: #4CAF50;
     color: white;
   }
+  #container::-webkit-scrollbar-track {
+    background: #e0e0e0;
+  }
+  #container::-webkit-scrollbar-thumb {
+    background: #aaa;
+  }
 }
 
 @media (max-width: 768px) {
@@ -149,12 +200,11 @@ h1 {
     padding: 0 10px;
   }
   
-  #container svg {
-    max-width: 100%;
-    height: auto;
-  }
-  
   .prompt-input {
     width: 60%;
+  }
+  
+  #container {
+    -webkit-overflow-scrolling: touch;
   }
 }
