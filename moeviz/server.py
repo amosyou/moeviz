@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import uvicorn
 
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from queue import Queue
@@ -13,6 +14,7 @@ from pydantic import BaseModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import Dict, Any
 
+thread_pool = ThreadPoolExecutor(max_workers=1)
 
 app = FastAPI()
 
@@ -51,7 +53,7 @@ async def process_routing_queue():
         if not routing_queue.empty():
             data = routing_queue.get()
             await sio.emit('routing_update', data)
-        await asyncio.sleep(0.5) # 0.01
+        await asyncio.sleep(0.01)
 
 @app.on_event("startup")
 async def startup_event():
@@ -120,9 +122,16 @@ async def generate_text(request: PromptRequest):
 
     model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
     # input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
-    generated_ids = model.generate(
-        **model_inputs,
-        max_new_tokens=128
+    def run_generation():
+        return model.generate(
+            **model_inputs,
+            max_new_tokens=128
+        )
+
+    # prevent blocking of event loop
+    generated_ids = await asyncio.get_event_loop().run_in_executor(
+        thread_pool, 
+        run_generation
     )
     generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
 
