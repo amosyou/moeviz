@@ -53,7 +53,7 @@ async def process_routing_queue():
         if not routing_queue.empty():
             data = routing_queue.get()
             await sio.emit('routing_update', data)
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.001)
 
 @app.on_event("startup")
 async def startup_event():
@@ -71,6 +71,7 @@ def get_experts(layer_id):
             "tokens": tokens,
             "selected_experts": selected_experts.cpu().tolist(),
         }
+        print(routing_data)
         routing_queue.put(routing_data)
     
     return hook
@@ -85,7 +86,7 @@ def process_router_logits(router_logits, top_k):
 def get_token():
 
     def hook(module, input):
-        scratch.append(input[0].clone().detach().cpu().tolist())
+        scratch.append(input[0].clone().detach().cpu().squeeze().tolist())
     
     return hook
 
@@ -121,7 +122,7 @@ async def generate_text(request: PromptRequest):
     )
 
     model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
-    # input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
+    
     def run_generation():
         return model.generate(
             **model_inputs,
@@ -139,7 +140,7 @@ async def generate_text(request: PromptRequest):
     
     token_hook.remove()
     router_hook.remove()
-        
+    
     return {"message": generated_text}
 
 
