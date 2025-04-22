@@ -129,6 +129,7 @@ function drawEmptyVisualization() {
 }
 
 export function clearVisualization() {
+  console.log('Clearing visualization');
   d3.select('#container svg').remove();
   const { svg: newSvg, g: newG } = initVisualization();
   svg = newSvg;
@@ -136,6 +137,8 @@ export function clearVisualization() {
 }
 
 export function createVisualization(data) {
+  console.log('Creating visualization with data:', data.length);
+  
   // initialize if not already done
   if (!svg || !g) {
     const initialized = initVisualization();
@@ -208,13 +211,53 @@ export function createVisualization(data) {
         .attr("fill", colorScale(d.token_pos))
         .attr("stroke-width", 1)
         .attr("rx", 2)
-        .attr("ry", 2);
+        .attr("ry", 2)
+        .attr("class", "token-block")
+        .attr("data-token-pos", d.token_pos);
+      
+      // Add mouseover/mouseout interactions to highlight corresponding token in the display
+      block.on("mouseover", function() {
+        // Highlight this block
+        d3.select(this).attr("stroke", "#fff").attr("stroke-width", 2);
+        
+        // Highlight corresponding token in the token display
+        try {
+          const tokenElem = document.getElementById(`token-${d.token_pos}`);
+          if (tokenElem) {
+            tokenElem.style.boxShadow = "0 0 5px 2px white";
+            tokenElem.style.zIndex = "10";
+            tokenElem.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        } catch (error) {
+          console.warn(`Could not highlight token for position ${d.token_pos}:`, error);
+        }
+      })
+      .on("mouseout", function() {
+        // Unhighlight this block
+        d3.select(this).attr("stroke", null).attr("stroke-width", 1);
+        
+        // Unhighlight token
+        try {
+          const tokenElem = document.getElementById(`token-${d.token_pos}`);
+          if (tokenElem) {
+            tokenElem.style.boxShadow = "";
+            tokenElem.style.zIndex = "";
+          }
+        } catch (error) {
+          console.warn(`Could not unhighlight token for position ${d.token_pos}:`, error);
+        }
+      });
       
       // tooltip with detailed info
-      block.append("title")
-        .text(`Token ID: ${d.token_id}, Expert ID: ${d.expert_id}, Position: ${d.token_pos}, Layer: ${d.layer_id}`);
+      const tooltipText = d.decoded_token ? 
+        `Token: "${d.decoded_token}", ID: ${d.token_id}, Expert: ${d.expert_id}, Position: ${d.token_pos}` :
+        `Token ID: ${d.token_id}, Expert ID: ${d.expert_id}, Position: ${d.token_pos}, Layer: ${d.layer_id}`;
+        
+      block.append("title").text(tooltipText);
       
       // token_id text (only if block is wide enough)
+      let displayText = d.decoded_token ? d.decoded_token : String(d.token_id);
+      
       if (blockWidth >= config.textSizeThreshold) {
         // full-sized text for larger blocks
         g.append("text")
@@ -222,22 +265,25 @@ export function createVisualization(data) {
           .attr("y", height - (i + 0.5) * config.blockHeight)
           .attr("text-anchor", "middle")
           .attr("dominant-baseline", "middle")
+          .attr("class", "token-text")
+          .attr("data-token-pos", d.token_pos)
           .style("font-size", "12px")
           .style("fill", "white")
           .style("font-weight", "bold")
-          .text(d.token_id);
+          .text(displayText);
       } else if (blockWidth >= 25) {
-        // For medium blocks, show abbreviated token ID
-        const tokenText = String(d.token_id);
-        const abbrevText = tokenText.length > 3 ? 
-          tokenText.substring(0, 3) + "…" : 
-          tokenText;
+        // For medium blocks, show abbreviated text
+        const abbrevText = displayText.length > 3 ? 
+          displayText.substring(0, 3) + "…" : 
+          displayText;
           
         g.append("text")
           .attr("x", xPos + blockWidth / 2)
           .attr("y", height - (i + 0.5) * config.blockHeight)
           .attr("text-anchor", "middle")
           .attr("dominant-baseline", "middle")
+          .attr("class", "token-text")
+          .attr("data-token-pos", d.token_pos)
           .style("font-size", "10px") // Smaller font
           .style("fill", "white")
           .style("font-weight", "bold")
