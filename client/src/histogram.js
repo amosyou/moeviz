@@ -136,6 +136,14 @@ export function clearVisualization() {
   g = newG;
 }
 
+// Global variable for showing token IDs vs decoded text
+let showTokenIds = false;
+
+// Function to update the showTokenIds value from main.js
+export function setShowTokenIds(value) {
+  showTokenIds = value;
+}
+
 export function createVisualization(data) {
   console.log('Creating visualization with data:', data.length);
   
@@ -257,7 +265,10 @@ export function createVisualization(data) {
       block.append("title").text(tooltipText);
       
       // token_id text (only if block is wide enough)
-      let displayText = d.decoded_token ? d.decoded_token : String(d.token_id);
+      // Choose what to display based on showTokenIds setting
+      let displayText = showTokenIds ? 
+        String(d.token_id) : 
+        (d.decoded_token ? d.decoded_token : String(d.token_id));
       
       if (blockWidth >= config.textSizeThreshold) {
         // full-sized text for larger blocks
