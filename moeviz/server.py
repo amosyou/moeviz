@@ -11,10 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from queue import Queue
 from pydantic import BaseModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from moeviz.config import (SERVER_HOST, SERVER_PORT, ENABLE_CORS, MODEL_CONFIGS, 
                           MAX_NEW_TOKENS, THREAD_POOL_WORKERS, get_client_config)
+from moeviz.model_adapters import get_model_adapter
 
 
 class GenerateRequest(BaseModel):
@@ -85,68 +86,7 @@ def load_model(model_id):
         return None
 
 
-def get_experts(layer_id):
-
-    def hook(module, input, output):
-        selected_experts = process_router_logits(output.clone().detach(), top_k=4)
-        tokens = tokens_queue.get()
-        
-        routing_data = {
-            "layer_id": layer_id,
-            "tokens": tokens,
-            "selected_experts": selected_experts.cpu().tolist(),
-        }
-        
-        # Add decoded tokens if tokenizer is available
-        if 'current_tokenizer' in globals() and current_tokenizer is not None:
-            try:
-                if isinstance(tokens, list):
-                    # Make sure to convert tokens to integers for decoding
-                    decoded_tokens = []
-                    for t in tokens:
-                        try:
-                            token_str = current_tokenizer.decode([int(t)])
-                            decoded_tokens.append(token_str)
-                        except Exception as e:
-                            print(f"Error decoding token {t}: {e}")
-                            decoded_tokens.append(f"[ERROR:{t}]")
-                else:
-                    try:
-                        decoded_tokens = [current_tokenizer.decode([int(tokens)])]
-                    except:
-                        decoded_tokens = [f"[ERROR:{tokens}]"]
-                
-                routing_data["decoded_tokens"] = decoded_tokens
-                print(f"Successfully decoded {len(decoded_tokens)} tokens")
-            except Exception as e:
-                print(f"Error decoding tokens: {e}")
-                print(f"Token type: {type(tokens)}")
-                print(f"Token value: {tokens}")
-        else:
-            print("No tokenizer available for decoding")
-            
-        print(f"Routing data with {len(tokens) if isinstance(tokens, list) else 1} tokens being sent to client")
-        routing_queue.put(routing_data)
-    
-    return hook
-
-def process_router_logits(router_logits, top_k):
-    # router_logits: (batch * sequence_length, n_experts)
-    routing_weights = F.softmax(router_logits, dim=1, dtype=torch.float)
-    routing_weights, selected_experts = torch.topk(routing_weights, top_k, dim=-1)
-    return selected_experts
-
-
-def get_token():
-
-    def hook(module, input):
-        tokens = input[0].clone().detach().cpu().squeeze().tolist()
-        # Ensure tokens is always a list
-        if not isinstance(tokens, list):
-            tokens = [tokens]
-        tokens_queue.put(tokens)
-    
-    return hook
+# These functions are now provided by the model adapters in model_adapters.py
 
 
 @sio.event
@@ -163,28 +103,58 @@ async def generate_text(request: GenerateRequest):
     model_id = request.model
     print(f"Received prompt: {prompt}")
     
-    tokens_queue.empty()
-    model, tokenizer = load_model(model_id)
+    # Clean up any tokens in the queue
+    while not tokens_queue.empty():
+        tokens_queue.get()
     
-    # Make tokenizer available globally for token decoding
-    global current_tokenizer
-    current_tokenizer = tokenizer
+    # Load the model and tokenizer
+    model, tokenizer = load_model(model_id)
+    if not model or not tokenizer:
+        return {"error": f"Failed to load model {model_id}"}
+    
+    # Get the model config
+    model_config = MODEL_CONFIGS.get(model_id, {})
+    if not model_config:
+        return {"error": f"No configuration found for model {model_id}"}
+    
+    # Get the appropriate adapter for this model
+    try:
+        adapter = get_model_adapter(model_config)
+    except ValueError as e:
+        return {"error": str(e)}
+    
+    # Layer to monitor (currently just using the first layer)
+    layer_id = 0
+    
+    # Register hooks using the adapter
+    hooks = adapter.register_hooks(model, layer_id, tokens_queue, routing_queue, tokenizer)
+    
+    # Prepare the prompt
+    # We use a system message appropriate for the model type, with fallback to a generic one
+    system_content = "You are a helpful assistant."
+    if model_config.get('model_type') == 'qwen':
+        system_content = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
+    elif model_config.get('model_type') == 'mixtral':
+        system_content = "You are a helpful, respectful and honest assistant."
         
-    i = 0
-    # register hook
-    token_hook = (model.model.embed_tokens).register_forward_pre_hook(get_token())
-    router_hook = (model.model.layers[i].mlp.gate).register_forward_hook(get_experts(i))
-            
     messages = [
-        {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
+        {"role": "system", "content": system_content},
         {"role": "user", "content": prompt}
     ]
-    text = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True
-    )
-
+    
+    # Apply chat template - handle differences between models
+    try:
+        text = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+    except Exception as e:
+        print(f"Error applying chat template: {e}")
+        # Fallback to simpler prompt
+        text = f"<s>[INST] {prompt} [/INST]"
+    
+    # Tokenize input and prepare for generation
     model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
     
     def run_generation():
@@ -193,17 +163,25 @@ async def generate_text(request: GenerateRequest):
             max_new_tokens=MAX_NEW_TOKENS
         )
 
-    # prevent blocking of event loop
-    generated_ids = await asyncio.get_event_loop().run_in_executor(
-        thread_pool, 
-        run_generation
-    )
-    generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+    # Prevent blocking of event loop
+    try:
+        generated_ids = await asyncio.get_event_loop().run_in_executor(
+            thread_pool, 
+            run_generation
+        )
+        generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+    except Exception as e:
+        print(f"Generation error: {e}")
+        for hook in hooks:
+            hook.remove()
+        return {"error": f"Generation failed: {str(e)}"}
 
+    # Notify client that generation is complete
     await sio.emit('generation_complete')
     
-    token_hook.remove()
-    router_hook.remove()
+    # Remove hooks
+    for hook in hooks:
+        hook.remove()
     
     return {"message": generated_text}
 

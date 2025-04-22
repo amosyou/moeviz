@@ -161,14 +161,12 @@ function processRoutingData(data) {
       
       const tokenSpan = document.createElement('span');
       tokenSpan.className = 'token';
-      // Set token text based on display mode
-      const displayText = showTokenIds ? 
-        (tokenIds[index] || '?') : 
-        decodedToken;
+      // Set display text based on the current mode (text or token IDs)
+      const displayText = showTokenIds ? tokenIds[index] : decodedToken;
       tokenSpan.textContent = displayText;
+      tokenSpan.setAttribute('data-decoded-token', decodedToken);
       tokenSpan.id = `token-${tokenPosition}`;
       tokenSpan.setAttribute('data-token-id', tokenIds[index] || '');
-      tokenSpan.setAttribute('data-decoded-token', decodedToken);
       tokenSpan.setAttribute('data-position', tokenPosition);
       tokenSpan.style.backgroundColor = colorScale(tokenPosition);
       
@@ -209,19 +207,13 @@ function processRoutingData(data) {
         expertsForToken = selectedExperts;
       }
       
-      // Calculate the base position - use the unique token count calculation
-      const uniqueTokenCount = routingData.length > 0 ? 
-        new Set(routingData.map(item => item.token_pos)).size : 0;
-      const tokenPosition = uniqueTokenCount + tokenIndex;
-      
       // create an entry for each expert this token is routed to
       expertsForToken.forEach(expertId => {
         transformedData.push({
           layer_id: data.layer_id,
           token_id: tokenId,
           expert_id: expertId,
-          token_pos: tokenPosition, // Use consistent token position
-          decoded_token: decodedTokens[tokenIndex] || String(tokenId)
+          token_pos: routingData.length + tokenIndex
         });
       });
     });
@@ -230,20 +222,13 @@ function processRoutingData(data) {
     const tokenId = tokenIds;
     const expertsForToken = Array.isArray(selectedExperts[0]) ? 
       selectedExperts[0] : selectedExperts;
-    const decodedToken = decodedTokens[0] || String(tokenId);
-      
-    // Calculate the base position - use the unique token count calculation
-    const uniqueTokenCount = routingData.length > 0 ? 
-      new Set(routingData.map(item => item.token_pos)).size : 0;
-    const tokenPosition = uniqueTokenCount;
     
     expertsForToken.forEach(expertId => {
       transformedData.push({
         layer_id: data.layer_id,
         token_id: tokenId,
         expert_id: expertId,
-        token_pos: tokenPosition, // Use consistent token position
-        decoded_token: decodedToken
+        token_pos: routingData.length
       });
     });
   }
@@ -327,11 +312,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize visualization
   initVisualization();
   
-  // Make sure the token display and checkbox are initialized
+  // Make sure the token display is initialized
   tokenDisplay = document.getElementById('token-display');
   showTokenIdsCheckbox = document.getElementById('show-token-ids-checkbox');
   
-  // Set up checkbox event listener
+  // Setup checkbox event listener for token ID display
   if (showTokenIdsCheckbox) {
     showTokenIdsCheckbox.addEventListener('change', function() {
       showTokenIds = this.checked;
@@ -353,8 +338,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         createVisualization(routingData);
       }
     });
-  } else {
-    console.error('Failed to find show-token-ids-checkbox element');
   }
   
   if (tokenDisplay) {

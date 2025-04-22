@@ -9,12 +9,25 @@ SERVER_PORT = int(os.environ.get("MOEVIZ_SERVER_PORT", "8000"))
 BASE_URL = os.environ.get("MOEVIZ_BASE_URL", f"http://{SERVER_HOST}:{SERVER_PORT}")
 ENABLE_CORS = os.environ.get("MOEVIZ_ENABLE_CORS", "true").lower() == "true"
 
-# Model configurations
+# Model configurations with router information
 MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
     'qwen-1.5-moe-a2.7b': {
         'name': 'Qwen1.5-MoE-A2.7B',
         'expert_count': 60,
-        'path': 'Qwen/Qwen1.5-MoE-A2.7B'
+        'path': 'Qwen/Qwen1.5-MoE-A2.7B',
+        'model_type': 'qwen',
+        'router_type': 'gate',
+        'router_location': 'model.layers[{layer_id}].mlp.gate',
+        'top_k': 4,
+    },
+    'mixtral-8x7b': {
+        'name': 'Mixtral-8x7B',
+        'expert_count': 8,
+        'path': 'mistralai/Mixtral-8x7B-v0.1',
+        'model_type': 'mixtral',
+        'router_type': 'router',
+        'router_location': 'model.layers[{layer_id}].block_sparse_moe.gate',
+        'top_k': 2,
     },
 }
 
