@@ -131,16 +131,17 @@ async def generate_text(request: GenerateRequest):
     
     # Prepare the prompt
     # We use a system message appropriate for the model type, with fallback to a generic one
-    system_content = "You are a helpful assistant."
+    use_system_prompt = False
+    system_content = ""
     if model_config.get('model_type') == 'qwen':
         system_content = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-    elif model_config.get('model_type') == 'mixtral':
-        system_content = "You are a helpful, respectful and honest assistant."
-        
-    messages = [
-        {"role": "user", "content": prompt}
-    ]
+        use_system_prompt = True
     
+    messages = []
+    if use_system_prompt:
+        messages.append({"role": "system", "content": system_content})
+    messages.append({"role": "user", "content": prompt})
+        
     # Apply chat template - handle differences between models
     try:
         text = tokenizer.apply_chat_template(
@@ -165,7 +166,7 @@ async def generate_text(request: GenerateRequest):
     # Prevent blocking of event loop
     try:
         generated_ids = await asyncio.get_event_loop().run_in_executor(
-            thread_pool, 
+            thread_pool,
             run_generation
         )
         generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
