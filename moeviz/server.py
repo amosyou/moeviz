@@ -96,7 +96,36 @@ def get_experts(layer_id):
             "tokens": tokens,
             "selected_experts": selected_experts.cpu().tolist(),
         }
-        print(routing_data)
+        
+        # Add decoded tokens if tokenizer is available
+        if 'current_tokenizer' in globals() and current_tokenizer is not None:
+            try:
+                if isinstance(tokens, list):
+                    # Make sure to convert tokens to integers for decoding
+                    decoded_tokens = []
+                    for t in tokens:
+                        try:
+                            token_str = current_tokenizer.decode([int(t)])
+                            decoded_tokens.append(token_str)
+                        except Exception as e:
+                            print(f"Error decoding token {t}: {e}")
+                            decoded_tokens.append(f"[ERROR:{t}]")
+                else:
+                    try:
+                        decoded_tokens = [current_tokenizer.decode([int(tokens)])]
+                    except:
+                        decoded_tokens = [f"[ERROR:{tokens}]"]
+                
+                routing_data["decoded_tokens"] = decoded_tokens
+                print(f"Successfully decoded {len(decoded_tokens)} tokens")
+            except Exception as e:
+                print(f"Error decoding tokens: {e}")
+                print(f"Token type: {type(tokens)}")
+                print(f"Token value: {tokens}")
+        else:
+            print("No tokenizer available for decoding")
+            
+        print(f"Routing data with {len(tokens) if isinstance(tokens, list) else 1} tokens being sent to client")
         routing_queue.put(routing_data)
     
     return hook
@@ -111,7 +140,11 @@ def process_router_logits(router_logits, top_k):
 def get_token():
 
     def hook(module, input):
-        tokens_queue.put(input[0].clone().detach().cpu().squeeze().tolist())
+        tokens = input[0].clone().detach().cpu().squeeze().tolist()
+        # Ensure tokens is always a list
+        if not isinstance(tokens, list):
+            tokens = [tokens]
+        tokens_queue.put(tokens)
     
     return hook
 
@@ -132,6 +165,10 @@ async def generate_text(request: GenerateRequest):
     
     tokens_queue.empty()
     model, tokenizer = load_model(model_id)
+    
+    # Make tokenizer available globally for token decoding
+    global current_tokenizer
+    current_tokenizer = tokenizer
         
     i = 0
     # register hook

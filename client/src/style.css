@@ -97,6 +97,42 @@ h1 {
   max-width: 600px;
 }
 
+.token-display-container {
+  margin: 20px 0;
+  width: 100%;
+  max-width: 800px;
+  text-align: left;
+}
+
+.token-display {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  padding: 15px;
+  max-height: 150px;
+  overflow-y: auto;
+  font-family: monospace;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.token-display .token {
+  display: inline-block;
+  padding: 2px 4px;
+  margin: 0 2px;
+  border-radius: 3px;
+  font-weight: 500;
+  position: relative;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.token-display .token:hover {
+  transform: scale(1.1);
+  z-index: 5;
+  box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.5);
+}
+
 .prompt-input {
   width: 70%;
   padding: 8px;
