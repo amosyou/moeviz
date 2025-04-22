@@ -188,9 +188,10 @@ export function createVisualization(data) {
     .domain([0, maxCount])
     .range([height, 0]);
   
-  // color scale based on token_pos values
+  // Use fixed color scale to match the token display
+  const MAX_TOKENS = 150; // Same fixed max as in main.js
   const colorScale = d3.scaleSequential(d3.interpolateViridis)
-    .domain([0, d3.max(data, d => d.token_pos) || 1]); // Ensure valid domain even with no data
+    .domain([0, MAX_TOKENS]); // Fixed domain for consistency with token display
   
   // draw visualization for each expert_id
   expertIds.forEach(expertId => {
@@ -348,7 +349,7 @@ export function createVisualization(data) {
     colorRange.forEach(value => {
       linearGradient.append("stop")
         .attr("offset", `${value * 100}%`)
-        .attr("stop-color", colorScale(value * d3.max(data, d => d.token_pos)));
+        .attr("stop-color", colorScale(value * MAX_TOKENS)); // Use the same MAX_TOKENS
     });
     
     // legend rectangle
@@ -357,9 +358,9 @@ export function createVisualization(data) {
       .attr("height", legendHeight)
       .style("fill", "url(#token-color-gradient)");
     
-    // legend scale
+    // legend scale - use the fixed MAX_TOKENS value
     const legendScale = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d.token_pos)])
+      .domain([0, MAX_TOKENS])
       .range([0, legendWidth]);
     
     legend.append("g")

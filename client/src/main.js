@@ -126,20 +126,37 @@ function processRoutingData(data) {
   if (tokenDisplay && decodedTokens && decodedTokens.length > 0) {
     console.log('Updating token display with:', { tokenIds, decodedTokens, position: routingData.length });
     // Create and display token spans directly here
+    // Use a fixed max value for consistency with the histogram
+    const MAX_TOKENS = 150; // Fixed maximum for consistent colors
     const colorScale = d3.scaleSequential(d3.interpolateViridis)
-      .domain([0, 50]); 
-      
+      .domain([0, MAX_TOKENS]); 
+
+    // Calculate the actual token positions - we need to do this carefully
+    // to match how they're displayed in the histogram
+    // Since each token appears multiple times (once per expert), 
+    // we need to use the token sequence index, not the routingData length
+    
+    // Calculate the base position - this should be the number of unique tokens processed so far
+    // not the number of token-expert pairs
+    const uniqueTokenCount = routingData.length > 0 ? 
+      new Set(routingData.map(item => item.token_pos)).size : 0;
+    
+    console.log(`Current unique token count: ${uniqueTokenCount}`);
+    
     decodedTokens.forEach((decodedToken, index) => {
-      const position = routingData.length + index;
+      // The real position is the current unique token count plus the index
+      const tokenPosition = uniqueTokenCount + index;
+      
       const tokenSpan = document.createElement('span');
       tokenSpan.className = 'token';
       tokenSpan.textContent = decodedToken;
-      tokenSpan.id = `token-${position}`;
+      tokenSpan.id = `token-${tokenPosition}`;
       tokenSpan.setAttribute('data-token-id', tokenIds[index] || '');
-      tokenSpan.setAttribute('data-position', position);
-      tokenSpan.style.backgroundColor = colorScale(position);
+      tokenSpan.setAttribute('data-position', tokenPosition);
+      tokenSpan.style.backgroundColor = colorScale(tokenPosition);
+      
       // Set text color based on background brightness
-      const color = d3.color(colorScale(position));
+      const color = d3.color(colorScale(tokenPosition));
       const brightness = (color.r * 299 + color.g * 587 + color.b * 114) / 1000;
       tokenSpan.style.color = brightness > 125 ? '#000' : '#fff';
       
@@ -175,13 +192,19 @@ function processRoutingData(data) {
         expertsForToken = selectedExperts;
       }
       
+      // Calculate the base position - use the unique token count calculation
+      const uniqueTokenCount = routingData.length > 0 ? 
+        new Set(routingData.map(item => item.token_pos)).size : 0;
+      const tokenPosition = uniqueTokenCount + tokenIndex;
+      
       // create an entry for each expert this token is routed to
       expertsForToken.forEach(expertId => {
         transformedData.push({
           layer_id: data.layer_id,
           token_id: tokenId,
           expert_id: expertId,
-          token_pos: routingData.length + tokenIndex
+          token_pos: tokenPosition, // Use consistent token position
+          decoded_token: decodedTokens[tokenIndex] || String(tokenId)
         });
       });
     });
@@ -190,13 +213,20 @@ function processRoutingData(data) {
     const tokenId = tokenIds;
     const expertsForToken = Array.isArray(selectedExperts[0]) ? 
       selectedExperts[0] : selectedExperts;
+    const decodedToken = decodedTokens[0] || String(tokenId);
+      
+    // Calculate the base position - use the unique token count calculation
+    const uniqueTokenCount = routingData.length > 0 ? 
+      new Set(routingData.map(item => item.token_pos)).size : 0;
+    const tokenPosition = uniqueTokenCount;
     
     expertsForToken.forEach(expertId => {
       transformedData.push({
         layer_id: data.layer_id,
         token_id: tokenId,
         expert_id: expertId,
-        token_pos: routingData.length
+        token_pos: tokenPosition, // Use consistent token position
+        decoded_token: decodedToken
       });
     });
   }
