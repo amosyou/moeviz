@@ -23,7 +23,7 @@ MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
     'mixtral-8x7b': {
         'name': 'Mixtral-8x7B',
         'expert_count': 8,
-        'path': 'mistralai/Mixtral-8x7B-v0.1',
+        'path': 'mistralai/Mixtral-8x7B-Instruct-v0.1',
         'model_type': 'mixtral',
         'router_type': 'router',
         'router_location': 'model.layers[{layer_id}].block_sparse_moe.gate',

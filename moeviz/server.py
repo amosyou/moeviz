@@ -75,7 +75,7 @@ def load_model(model_id):
         model_name = MODEL_CONFIGS[model_id]["path"]
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype="auto",
+            torch_dtype=torch.float16,
             device_map="auto"
         )
         tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -138,7 +138,6 @@ async def generate_text(request: GenerateRequest):
         system_content = "You are a helpful, respectful and honest assistant."
         
     messages = [
-        {"role": "system", "content": system_content},
         {"role": "user", "content": prompt}
     ]
     
