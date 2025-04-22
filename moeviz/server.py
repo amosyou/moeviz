@@ -75,7 +75,7 @@ def load_model(model_id):
         model_name = MODEL_CONFIGS[model_id]["path"]
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=torch.float16,
+            torch_dtype="auto",
             device_map="auto"
         )
         tokenizer = AutoTokenizer.from_pretrained(model_name)

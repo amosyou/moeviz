@@ -206,6 +206,11 @@ function processRoutingData(data) {
         // handle case where all tokens might share the same experts
         expertsForToken = selectedExperts;
       }
+
+      // Calculate the base position - use the unique token count calculation
+      const uniqueTokenCount = routingData.length > 0 ? 
+        new Set(routingData.map(item => item.token_pos)).size : 0;
+      const tokenPosition = uniqueTokenCount + tokenIndex;
       
       // create an entry for each expert this token is routed to
       expertsForToken.forEach(expertId => {
@@ -213,7 +218,8 @@ function processRoutingData(data) {
           layer_id: data.layer_id,
           token_id: tokenId,
           expert_id: expertId,
-          token_pos: routingData.length + tokenIndex
+          token_pos: tokenPosition, // Use consistent token position
+          decoded_token: decodedTokens[tokenIndex] || String(tokenId)
         });
       });
     });
@@ -222,13 +228,20 @@ function processRoutingData(data) {
     const tokenId = tokenIds;
     const expertsForToken = Array.isArray(selectedExperts[0]) ? 
       selectedExperts[0] : selectedExperts;
+    const decodedToken = decodedTokens[0] || String(tokenId);
+
+    // Calculate the base position - use the unique token count calculation
+    const uniqueTokenCount = routingData.length > 0 ? 
+      new Set(routingData.map(item => item.token_pos)).size : 0;
+    const tokenPosition = uniqueTokenCount;
     
     expertsForToken.forEach(expertId => {
       transformedData.push({
         layer_id: data.layer_id,
         token_id: tokenId,
         expert_id: expertId,
-        token_pos: routingData.length
+        token_pos: tokenPosition, // Use consistent token position
+        decoded_token: decodedToken
       });
     });
   }
