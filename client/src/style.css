@@ -104,6 +104,27 @@ h1 {
   text-align: left;
 }
 
+.token-display-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle-switch input[type="checkbox"] {
+  margin-right: 6px;
+}
+
+.toggle-label {
+  font-size: 14px;
+}
+
 .token-display {
   background-color: #1a1a1a;
   border-radius: 8px;

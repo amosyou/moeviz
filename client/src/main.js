@@ -1,7 +1,7 @@
 import './style.css'
 import * as d3 from 'd3';
 import { io } from 'socket.io-client'
-import { initVisualization, createVisualization, clearVisualization, setExpertCount } from './histogram.js'
+import { initVisualization, createVisualization, clearVisualization, setExpertCount, setShowTokenIds } from './histogram.js'
 import { serverUrl, modelConfigs } from './config.js'
 
 // modelConfigs are now imported from config.js
@@ -28,7 +28,15 @@ document.querySelector('#app').innerHTML = `
     </div>
     
     <div id="token-display-container" class="token-display-container">
-      <h3>Generated Tokens:</h3>
+      <div class="token-display-header">
+        <h3>Generated Tokens:</h3>
+        <div class="display-options">
+          <label class="toggle-switch">
+            <input type="checkbox" id="show-token-ids-checkbox">
+            <span class="toggle-label">Show Token IDs</span>
+          </label>
+        </div>
+      </div>
       <div id="token-display" class="token-display"></div>
     </div>
   </div>
@@ -57,6 +65,10 @@ const statusElement = document.getElementById('status');
 const modelSelector = document.getElementById('model-selector');
 const modelInfo = document.getElementById('model-info');
 let tokenDisplay = document.getElementById('token-display'); // Define as let so we can reassign later
+let showTokenIdsCheckbox = document.getElementById('show-token-ids-checkbox');
+
+// State for display mode
+let showTokenIds = false;
 
 // initialize with default model expert count
 setExpertCount(modelConfigs[currentModel].expertCount);
@@ -149,9 +161,14 @@ function processRoutingData(data) {
       
       const tokenSpan = document.createElement('span');
       tokenSpan.className = 'token';
-      tokenSpan.textContent = decodedToken;
+      // Set token text based on display mode
+      const displayText = showTokenIds ? 
+        (tokenIds[index] || '?') : 
+        decodedToken;
+      tokenSpan.textContent = displayText;
       tokenSpan.id = `token-${tokenPosition}`;
       tokenSpan.setAttribute('data-token-id', tokenIds[index] || '');
+      tokenSpan.setAttribute('data-decoded-token', decodedToken);
       tokenSpan.setAttribute('data-position', tokenPosition);
       tokenSpan.style.backgroundColor = colorScale(tokenPosition);
       
@@ -310,8 +327,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize visualization
   initVisualization();
   
-  // Make sure the token display is initialized
+  // Make sure the token display and checkbox are initialized
   tokenDisplay = document.getElementById('token-display');
+  showTokenIdsCheckbox = document.getElementById('show-token-ids-checkbox');
+  
+  // Set up checkbox event listener
+  if (showTokenIdsCheckbox) {
+    showTokenIdsCheckbox.addEventListener('change', function() {
+      showTokenIds = this.checked;
+      
+      // Update all token displays
+      const tokenElements = document.querySelectorAll('.token');
+      tokenElements.forEach(token => {
+        const tokenId = token.getAttribute('data-token-id');
+        const decodedToken = token.getAttribute('data-decoded-token');
+        token.textContent = showTokenIds ? tokenId : decodedToken;
+      });
+      
+      // Update histogram mode
+      setShowTokenIds(showTokenIds);
+      
+      // Redraw histogram if we have data
+      if (routingData.length > 0) {
+        clearVisualization();
+        createVisualization(routingData);
+      }
+    });
+  } else {
+    console.error('Failed to find show-token-ids-checkbox element');
+  }
+  
   if (tokenDisplay) {
     console.log('Token display initialized successfully');
   } else {
