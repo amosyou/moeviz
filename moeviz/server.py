@@ -13,24 +13,28 @@ from pydantic import BaseModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import Dict, Any
 
+from moeviz.config import (SERVER_HOST, SERVER_PORT, ENABLE_CORS, MODEL_CONFIGS, 
+                          MAX_NEW_TOKENS, THREAD_POOL_WORKERS, get_client_config)
+
 
 class GenerateRequest(BaseModel):
     prompt: str
     model: str
 
 
-thread_pool = ThreadPoolExecutor(max_workers=1)
+thread_pool = ThreadPoolExecutor(max_workers=THREAD_POOL_WORKERS)
 
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if ENABLE_CORS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket_app = socketio.ASGIApp(sio)
@@ -54,25 +58,20 @@ async def startup_event():
     asyncio.create_task(process_routing_queue())
 
 
-model_configs = {
-    'qwen-1.5-moe-a2.7b': {
-        'name': 'Qwen1.5-MoE-A2.7B',
-        'expert_count': 60,
-        'path': 'Qwen/Qwen1.5-MoE-A2.7B'
-    },
-}
+# Model configurations are now imported from config.py
 
 loaded_models = {}
 
 def load_model(model_id):
-    if model_id not in model_configs:
+    """Load a model and tokenizer by model_id from MODEL_CONFIGS."""
+    if model_id not in MODEL_CONFIGS:
         raise ValueError(f"Unknown model: {model_id}")
     
     if model_id in loaded_models:
         return loaded_models[model_id]
     
     try:
-        model_name = model_configs[model_id]["path"]
+        model_name = MODEL_CONFIGS[model_id]["path"]
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype="auto",
@@ -154,7 +153,7 @@ async def generate_text(request: GenerateRequest):
     def run_generation():
         return model.generate(
             **model_inputs,
-            max_new_tokens=128
+            max_new_tokens=MAX_NEW_TOKENS
         )
 
     # prevent blocking of event loop
@@ -172,5 +171,10 @@ async def generate_text(request: GenerateRequest):
     return {"message": generated_text}
 
 
+@app.get("/config")
+async def get_config():
+    """Return configuration for the client"""
+    return get_client_config()
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)

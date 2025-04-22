@@ -1,10 +1,9 @@
 import './style.css'
 import { io } from 'socket.io-client'
 import { initVisualization, createVisualization, clearVisualization, setExpertCount } from './histogram.js'
+import { serverUrl, modelConfigs } from './config.js'
 
-const modelConfigs = {
-  'qwen-1.5-moe-a2.7b': { name: 'Qwen1.5-MoE-A2.7B', expertCount: 60 },
-};
+// modelConfigs are now imported from config.js
 
 // Create HTML content with model selector
 document.querySelector('#app').innerHTML = `
@@ -37,7 +36,7 @@ document.querySelector('#app').innerHTML = `
   </div>
 `
 
-const socket = io('http://0.0.0.0:8000', {
+const socket = io(serverUrl, {
   transports: ['websocket'],
   upgrade: false
 });
@@ -187,7 +186,7 @@ async function startGeneration(prompt) {
   clearVisualization();
   
   try {
-    const response = await fetch('http://0.0.0.0:8000/generate', {
+    const response = await fetch(`${serverUrl}/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -213,6 +212,20 @@ async function startGeneration(prompt) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   initVisualization();
+  
+  // Try to fetch server config if available
+  try {
+    const response = await fetch(`${serverUrl}/config`);
+    if (response.ok) {
+      const serverConfig = await response.json();
+      // Update window config for use in config.js
+      window.__MOEVIZ_CONFIG__ = serverConfig;
+      // Refresh page to apply new config
+      // window.location.reload();
+    }
+  } catch (error) {
+    console.warn('Could not fetch server config:', error);
+  }
 });
