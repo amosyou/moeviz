@@ -97,6 +97,31 @@ h1 {
   max-width: 600px;
 }
 
+.model-selector-container {
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+
+.model-selector {
+  padding: 6px 10px;
+  border-radius: 4px;
+  background-color: #333;
+  color: white;
+  border: 1px solid #555;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.model-info {
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
 .token-display-container {
   margin: 20px 0;
   width: 100%;

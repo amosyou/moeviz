@@ -5,6 +5,7 @@ const defaultConfig = {
   serverUrl: 'http://0.0.0.0:8000',
   models: {
     'qwen-1.5-moe-a2.7b': { name: 'Qwen1.5-MoE-A2.7B', expertCount: 60 },
+    'mixtral-8x7b': { name: 'Mixtral-8x7B', expertCount: 8 },
   }
 };
 
