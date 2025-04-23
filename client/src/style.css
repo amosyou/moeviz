@@ -53,14 +53,40 @@ h1 {
 #container {
   width: 100%;
   margin: 20px 0;
-  overflow-x: auto;
-  overflow-y: hidden;
   position: relative;
   padding-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Chart Title - always centered and fixed */
+.chart-title {
+  text-align: center;
+  font-size: 16px;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+/* Scrollable chart container */
+.chart-scroll-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-bottom: 35px; /* Space for x-axis label */
 }
 
 #container svg {
   min-width: 900px;
+}
+
+/* X-axis label - always centered and fixed */
+.axis-label {
+  text-align: center;
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  font-size: 14px;
 }
 
 #container::-webkit-scrollbar {

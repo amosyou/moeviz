@@ -23,23 +23,43 @@ export function initVisualization() {
   width = 900 - margin.left - margin.right;
   height = 500 - margin.top - margin.bottom;
 
-  d3.select('#container svg').remove();
-
+  // Clear existing content
+  const container = document.getElementById('container');
+  container.innerHTML = '';
+  
+  // Create the chart title (fixed)
+  const chartTitle = document.createElement('div');
+  chartTitle.className = 'chart-title';
+  chartTitle.innerHTML = '<span>Distribution of Tokens by Expert ID</span>';
+  container.appendChild(chartTitle);
+  
+  // Create the scrollable container
+  const scrollContainer = document.createElement('div');
+  scrollContainer.className = 'chart-scroll-container';
+  container.appendChild(scrollContainer);
+  
+  // Create new SVG inside the scroll container
   svg = d3.create("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom);
   
-  // add a group element for margin handling
+  // Add a group element for chart content
   g = svg.append("g")
     .attr("transform", `translate(${margin.left}, ${margin.top})`);
   
-  // get container and append SVG
-  const container = document.getElementById('container');
-  container.append(svg.node());
+  // Append SVG to scroll container
+  scrollContainer.appendChild(svg.node());
   
-  // set up container for horizontal scrolling if needed
+  // Create x-axis label (fixed)
+  const xAxisLabel = document.createElement('div');
+  xAxisLabel.className = 'axis-label';
+  xAxisLabel.innerHTML = '<span>Expert ID</span>';
+  container.appendChild(xAxisLabel);
+  
+  // Setup scrollable container based on expert count
   setupScrollableContainer(config.expertCount);
   
+  // Draw empty visualization
   drawEmptyVisualization();
 
   return { svg, g, width, height, margin };
@@ -54,17 +74,16 @@ function setupScrollableContainer(expertCount) {
   const needsScrolling = totalWidth > width;
   
   if (needsScrolling) {
+    // Set SVG width to accommodate all experts
     svg.attr("width", totalWidth + margin.left + margin.right);
     
+    // Add scroll indicator if doesn't exist
     const container = document.getElementById('container');
-    container.style.overflowX = "auto";
-    container.style.overflowY = "hidden";
-    
-    if (!document.querySelector('.scroll-indicator')) {
+    if (!container.querySelector('.scroll-indicator')) {
       const indicator = document.createElement('div');
       indicator.className = 'scroll-indicator';
       indicator.textContent = '↔️ Scroll to see all experts';
-      container.appendChild(indicator);
+      container.querySelector('.chart-scroll-container').appendChild(indicator);
       
       setTimeout(() => {
         indicator.style.opacity = '0';
@@ -99,26 +118,9 @@ function drawEmptyVisualization() {
     .selectAll("text")
     .style("text-anchor", "middle");
   
-  // x-axis label
+  // empty state message (centered in chart area)
   g.append("text")
-    .attr("x", Math.min(width, actualWidth) / 2)
-    .attr("y", height + margin.bottom - 15)
-    .attr("text-anchor", "middle")
-    .style("fill", "white")
-    .text("Expert ID");
-  
-  // title
-  g.append("text")
-    .attr("x", Math.min(width, actualWidth) / 2)
-    .attr("y", -margin.top / 2)
-    .attr("text-anchor", "middle")
-    .style("font-size", "16px")
-    .style("fill", "white")
-    .text("Distribution of Tokens by Expert ID");
-    
-  // empty state message
-  g.append("text")
-    .attr("x", Math.min(width, actualWidth) / 2)
+    .attr("x", actualWidth / 2)
     .attr("y", height / 2)
     .attr("text-anchor", "middle")
     .attr("dominant-baseline", "middle")
@@ -130,10 +132,27 @@ function drawEmptyVisualization() {
 
 export function clearVisualization() {
   console.log('Clearing visualization');
-  d3.select('#container svg').remove();
-  const { svg: newSvg, g: newG } = initVisualization();
-  svg = newSvg;
-  g = newG;
+  
+  // Reset title text
+  const chartTitle = document.querySelector('.chart-title span');
+  if (chartTitle) {
+    chartTitle.textContent = "Distribution of Tokens by Expert ID";
+  }
+  
+  // Remove legend if it exists
+  d3.select('.color-legend-container').remove();
+  
+  // If we have an SVG and group, clear the group contents
+  if (svg && g) {
+    g.selectAll("*").remove();
+    // Redraw the empty visualization
+    drawEmptyVisualization();
+  } else {
+    // If there's no SVG or group, reinitialize everything
+    const { svg: newSvg, g: newG } = initVisualization();
+    svg = newSvg;
+    g = newG;
+  }
 }
 
 // Global variable for showing token IDs vs decoded text
@@ -320,34 +339,44 @@ export function createVisualization(data) {
     .selectAll("text")
     .style("text-anchor", "middle");
   
-  // x-axis label
-  g.append("text")
-    .attr("x", Math.min(width, actualWidth) / 2)
-    .attr("y", height + margin.bottom - 15)
-    .attr("text-anchor", "middle")
-    .style("fill", "white")
-    .text("Expert ID");
-  
-  // title
-  g.append("text")
-    .attr("x", Math.min(width, actualWidth) / 2)
-    .attr("y", -margin.top / 2)
-    .attr("text-anchor", "middle")
-    .style("font-size", "16px")
-    .style("fill", "white")
-    .text("Distribution of Token IDs by Expert ID");
+  // Update chart title text for populated state
+  const chartTitle = document.querySelector('.chart-title span');
+  if (chartTitle) {
+    chartTitle.textContent = "Distribution of Token IDs by Expert ID";
+  }
   
   // only create color legend if we have data
   if (data.length > 0) {
-    // color legend
+    // Remove existing legend if present
+    d3.select('.color-legend-container').remove();
+    
+    // Create a fixed position legend container
+    const container = document.getElementById('container');
+    const legendContainer = document.createElement('div');
+    legendContainer.className = 'color-legend-container';
+    legendContainer.style.position = 'absolute';
+    legendContainer.style.top = '10px';
+    legendContainer.style.right = '10px';
+    legendContainer.style.width = '200px';
+    legendContainer.style.height = '50px';
+    legendContainer.style.pointerEvents = 'none';
+    container.appendChild(legendContainer);
+    
+    // Create SVG for legend
     const legendWidth = 200;
     const legendHeight = 15;
+    const legendSvg = d3.create("svg")
+      .attr("width", legendWidth)
+      .attr("height", 50);
     
-    const legend = g.append("g")
-      .attr("transform", `translate(${Math.min(width, actualWidth) - legendWidth - 10}, ${-margin.top})`);
+    // Add to the legend container
+    legendContainer.appendChild(legendSvg.node());
+    
+    const legend = legendSvg.append("g")
+      .attr("transform", "translate(0, 5)");
     
     // gradient for legend
-    const defs = g.append("defs");
+    const defs = legendSvg.append("defs");
     const linearGradient = defs.append("linearGradient")
       .attr("id", "token-color-gradient")
       .attr("x1", "0%")
