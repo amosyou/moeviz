@@ -21,7 +21,7 @@ export function setExpertCount(count) {
 export function initVisualization() {
   margin = { top: 40, right: 30, bottom: 60, left: 60 };
   width = 900 - margin.left - margin.right;
-  height = 500 - margin.top - margin.bottom;
+  height = 500 - margin.top - margin.bottom; // Initial height, can be expanded
 
   // Clear existing content
   const container = document.getElementById('container');
@@ -132,8 +132,9 @@ function drawEmptyVisualization() {
     .domain([0, 10])
     .range([height, 0]);
   
-  // x-axis
+  // x-axis - always at the bottom of the chart
   g.append("g")
+    .attr("class", "x-axis")
     .attr("transform", `translate(0, ${height})`)
     .call(d3.axisBottom(x).tickFormat(d => d))
     .selectAll("text")
@@ -239,6 +240,27 @@ export function createVisualization(data) {
   });
   
   const maxCount = Math.max(...Object.values(expertCounts), 1); // Ensure at least 1 for empty counts
+  
+  // Check if we need to expand the height to accommodate all blocks
+  // Minimum height for count label (30px) + space for all blocks
+  const requiredHeight = Math.max(
+    maxCount * config.blockHeight + 40, // 40px for count label and some padding
+    height // don't go smaller than default height
+  );
+  
+  // Update SVG height if needed
+  const heightDifference = requiredHeight - height;
+  if (heightDifference > 0) {
+    console.log(`Expanding height by ${heightDifference}px to fit ${maxCount} blocks`);
+    height = requiredHeight;
+    svg.attr("height", height + margin.top + margin.bottom);
+    
+    // Update the chart-scroll-container height to match
+    const scrollContainer = document.querySelector('.chart-scroll-container');
+    if (scrollContainer) {
+      scrollContainer.style.height = `${height + margin.top + margin.bottom}px`;
+    }
+  }
   
   // y-scale for blocks
   const y = d3.scaleLinear()
@@ -352,18 +374,19 @@ export function createVisualization(data) {
       }
     });
     
-    // count labels
+    // count labels - ensure they're above the blocks with adequate spacing
     g.append("text")
       .attr("x", xPos + blockWidth / 2)
-      .attr("y", 30)
+      .attr("y", 20) // Position count labels higher up
       .attr("text-anchor", "middle")
       .style("font-size", "12px")
       .style("fill", "white")
       .text(group.length);
   });
   
-  // x-axis
+  // x-axis - always at the bottom of the chart
   g.append("g")
+    .attr("class", "x-axis")
     .attr("transform", `translate(0, ${height})`)
     .call(d3.axisBottom(x).tickFormat(d => d))
     .selectAll("text")

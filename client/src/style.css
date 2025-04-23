@@ -72,19 +72,39 @@ h1 {
 .chart-scroll-container {
   width: 100%;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto; /* Allow vertical scrolling */
   margin-bottom: 35px; /* Space for x-axis label */
+  max-height: 600px; /* Max height before scrolling */
 }
 
-/* Hide scrollbar when not needed */
-.chart-scroll-container::-webkit-scrollbar {
+/* Hide horizontal scrollbar when not needed */
+.chart-scroll-container::-webkit-scrollbar:horizontal {
   height: 8px;
   display: none; /* Hide by default */
 }
 
-/* Only show scrollbar when content is wider than container */
-.chart-scroll-container.needs-scrolling::-webkit-scrollbar {
+/* Only show horizontal scrollbar when content is wider than container */
+.chart-scroll-container.needs-scrolling::-webkit-scrollbar:horizontal {
   display: block;
+}
+
+/* Vertical scrollbar styling */
+.chart-scroll-container::-webkit-scrollbar:vertical {
+  width: 8px;
+}
+
+.chart-scroll-container::-webkit-scrollbar-track:vertical {
+  background: #2a2a2a;
+  border-radius: 10px;
+}
+
+.chart-scroll-container::-webkit-scrollbar-thumb:vertical {
+  background: #555;
+  border-radius: 10px;
+}
+
+.chart-scroll-container::-webkit-scrollbar-thumb:vertical:hover {
+  background: #777;
 }
 
 #container svg {
@@ -98,6 +118,9 @@ h1 {
   bottom: 0;
   width: 100%;
   font-size: 14px;
+  background-color: #242424; /* Match page background */
+  padding: 5px 0;
+  z-index: 10;
 }
 
 .chart-scroll-container::-webkit-scrollbar {
