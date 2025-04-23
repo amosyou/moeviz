@@ -295,6 +295,21 @@ h1 {
   z-index: 100;
 }
 
+.empty-state-message {
+  position: absolute;
+  top: 50%;
+  left: 50%; /* Offset to the left to align with viewport start */
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  color: white;
+  opacity: 0.7;
+  text-align: center;
+  width: 100%;
+  max-width: 500px;
+  pointer-events: none;
+  z-index: 50;
+}
+
 @keyframes fadeInOut {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.8; }

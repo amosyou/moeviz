@@ -140,16 +140,17 @@ function drawEmptyVisualization() {
     .selectAll("text")
     .style("text-anchor", "middle");
   
-  // empty state message (centered in chart area)
-  g.append("text")
-    .attr("x", actualWidth / 2)
-    .attr("y", height / 2)
-    .attr("text-anchor", "middle")
-    .attr("dominant-baseline", "middle")
-    .style("font-size", "16px")
-    .style("fill", "white")
-    .style("opacity", "0.7")
-    .text("Enter a prompt to see expert routing visualization");
+  // Instead of using SVG text which might scroll out of view, create an HTML element
+  // positioned in the center of the visible area
+  const emptyStateMessage = document.createElement('div');
+  emptyStateMessage.className = 'empty-state-message';
+  emptyStateMessage.textContent = 'Enter a prompt to see expert routing visualization';
+  
+  // Find the scroll container and add the message
+  const scrollContainer = document.querySelector('.chart-scroll-container');
+  if (scrollContainer) {
+    scrollContainer.appendChild(emptyStateMessage);
+  }
 }
 
 export function clearVisualization() {
@@ -163,6 +164,12 @@ export function clearVisualization() {
   
   // Remove legend if it exists
   d3.select('.color-legend-container').remove();
+  
+  // Remove any existing empty state message
+  const existingMessage = document.querySelector('.empty-state-message');
+  if (existingMessage) {
+    existingMessage.remove();
+  }
   
   // If we have an SVG and group, clear the group contents
   if (svg && g) {
@@ -199,6 +206,12 @@ export function createVisualization(data) {
   } else {
     // clear existing visualization elements but keep the SVG
     g.selectAll("*").remove();
+  }
+  
+  // Remove any existing empty state message
+  const existingMessage = document.querySelector('.empty-state-message');
+  if (existingMessage) {
+    existingMessage.remove();
   }
   
   // ensure we have data
@@ -395,7 +408,7 @@ export function createVisualization(data) {
   // Update chart title text for populated state
   const chartTitle = document.querySelector('.chart-title span');
   if (chartTitle) {
-    chartTitle.textContent = "Distribution of Token IDs by Expert ID";
+    chartTitle.textContent = "Distribution of Tokens by Expert ID";
   }
   
   // only create color legend if we have data
