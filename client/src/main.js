@@ -42,12 +42,6 @@ document.querySelector('#app').innerHTML = `
   </div>
   
   <div id="container"></div>
-  
-  <div class="description">
-    <p>Each block represents a token, with the decoded token inside the block.</p>
-    <p>Blocks are stacked vertically for each expert_id and colored according to token_pos value.</p>
-    <p>Numbers above each column show the count of tokens for that expert_id.</p>
-  </div>
 `
 
 const socket = io(serverUrl, {

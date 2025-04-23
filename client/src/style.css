@@ -76,6 +76,17 @@ h1 {
   margin-bottom: 35px; /* Space for x-axis label */
 }
 
+/* Hide scrollbar when not needed */
+.chart-scroll-container::-webkit-scrollbar {
+  height: 8px;
+  display: none; /* Hide by default */
+}
+
+/* Only show scrollbar when content is wider than container */
+.chart-scroll-container.needs-scrolling::-webkit-scrollbar {
+  display: block;
+}
+
 #container svg {
   min-width: 900px;
 }
@@ -89,21 +100,21 @@ h1 {
   font-size: 14px;
 }
 
-#container::-webkit-scrollbar {
+.chart-scroll-container::-webkit-scrollbar {
   height: 8px;
 }
 
-#container::-webkit-scrollbar-track {
+.chart-scroll-container::-webkit-scrollbar-track {
   background: #2a2a2a;
   border-radius: 10px;
 }
 
-#container::-webkit-scrollbar-thumb {
+.chart-scroll-container::-webkit-scrollbar-thumb {
   background: #555;
   border-radius: 10px;
 }
 
-#container::-webkit-scrollbar-thumb:hover {
+.chart-scroll-container::-webkit-scrollbar-thumb:hover {
   background: #777;
 }
 
@@ -250,14 +261,15 @@ h1 {
 
 .scroll-indicator {
   position: absolute;
-  bottom: 0;
-  right: 0;
+  bottom: 10px;
+  right: 10px;
   padding: 5px 10px;
-  background-color: rgba(0, 0, 0, 0.4);
-  border-radius: 5px 0 0 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 5px;
   font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.9;
   animation: fadeInOut 2s infinite;
+  z-index: 100;
 }
 
 @keyframes fadeInOut {

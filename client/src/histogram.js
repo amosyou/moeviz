@@ -73,9 +73,16 @@ function setupScrollableContainer(expertCount) {
   const totalWidth = blockWidth * expertCount * (1 / (1 - config.expertPadding));
   const needsScrolling = totalWidth > width;
   
+  // Get the scroll container element
+  const scrollContainer = document.querySelector('.chart-scroll-container');
+  if (!scrollContainer) return;
+  
   if (needsScrolling) {
     // Set SVG width to accommodate all experts
     svg.attr("width", totalWidth + margin.left + margin.right);
+    
+    // Add needs-scrolling class to show scrollbar
+    scrollContainer.classList.add('needs-scrolling');
     
     // Add scroll indicator if doesn't exist
     const container = document.getElementById('container');
@@ -83,12 +90,24 @@ function setupScrollableContainer(expertCount) {
       const indicator = document.createElement('div');
       indicator.className = 'scroll-indicator';
       indicator.textContent = '↔️ Scroll to see all experts';
-      container.querySelector('.chart-scroll-container').appendChild(indicator);
+      scrollContainer.appendChild(indicator);
       
       setTimeout(() => {
         indicator.style.opacity = '0';
         indicator.style.transition = 'opacity 1s';
       }, 5000);
+    }
+  } else {
+    // If scrolling is not needed, use default width
+    svg.attr("width", width + margin.left + margin.right);
+    
+    // Remove needs-scrolling class to hide scrollbar
+    scrollContainer.classList.remove('needs-scrolling');
+    
+    // Remove scroll indicator if it exists
+    const indicator = document.querySelector('.scroll-indicator');
+    if (indicator) {
+      indicator.remove();
     }
   }
 }
@@ -98,7 +117,9 @@ function drawEmptyVisualization() {
   const calculatedWidth = width / expertIds.length * (1 - config.expertPadding);
   const blockWidth = Math.max(calculatedWidth, config.minBlockWidth);
   const totalWidth = blockWidth * expertIds.length * (1 / (1 - config.expertPadding));
-  const actualWidth = Math.max(width, totalWidth);
+  
+  // Only use totalWidth if it's greater than the default width
+  const actualWidth = totalWidth > width ? totalWidth : width;
   
   // x-scale for expert_ids
   const x = d3.scaleBand()
@@ -190,7 +211,16 @@ export function createVisualization(data) {
   const calculatedWidth = width / expertIds.length * (1 - config.expertPadding);
   const blockWidth = Math.max(calculatedWidth, config.minBlockWidth);
   const totalWidth = blockWidth * expertIds.length * (1 / (1 - config.expertPadding));
-  const actualWidth = Math.max(width, totalWidth);
+  
+  // Only use totalWidth if it's greater than the default width
+  const actualWidth = totalWidth > width ? totalWidth : width;
+  
+  // Update SVG width based on whether scrolling is needed
+  if (totalWidth > width) {
+    svg.attr("width", totalWidth + margin.left + margin.right);
+  } else {
+    svg.attr("width", width + margin.left + margin.right);
+  }
   
   // x-scale for expert_ids
   const x = d3.scaleBand()
