@@ -75,7 +75,7 @@ function setupScrollableContainer(expertCount) {
 }
 
 function drawEmptyVisualization() {
-  const expertIds = Array.from({ length: config.expertCount }, (_, i) => i + 1);
+  const expertIds = Array.from({ length: config.expertCount }, (_, i) => i);
   const calculatedWidth = width / expertIds.length * (1 - config.expertPadding);
   const blockWidth = Math.max(calculatedWidth, config.minBlockWidth);
   const totalWidth = blockWidth * expertIds.length * (1 / (1 - config.expertPadding));
@@ -167,7 +167,7 @@ export function createVisualization(data) {
   }
   
   // use predefined expert count from config rather than just data
-  const expertIds = Array.from({ length: config.expertCount }, (_, i) => i + 1);
+  const expertIds = Array.from({ length: config.expertCount }, (_, i) => i);
   const calculatedWidth = width / expertIds.length * (1 - config.expertPadding);
   const blockWidth = Math.max(calculatedWidth, config.minBlockWidth);
   const totalWidth = blockWidth * expertIds.length * (1 / (1 - config.expertPadding));
