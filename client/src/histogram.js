@@ -114,7 +114,7 @@ function drawEmptyVisualization() {
     .attr("text-anchor", "middle")
     .style("font-size", "16px")
     .style("fill", "white")
-    .text("Distribution of Token IDs by Expert ID");
+    .text("Distribution of Tokens by Expert ID");
     
   // empty state message
   g.append("text")

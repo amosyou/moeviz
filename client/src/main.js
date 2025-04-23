@@ -29,7 +29,7 @@ document.querySelector('#app').innerHTML = `
     
     <div id="token-display-container" class="token-display-container">
       <div class="token-display-header">
-        <h3>Generated Tokens:</h3>
+        <h3>Tokens</h3>
         <div class="display-options">
           <label class="toggle-switch">
             <input type="checkbox" id="show-token-ids-checkbox">
@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           tokenContainer.className = 'token-display-container';
           
           const heading = document.createElement('h3');
-          heading.textContent = 'Generated Tokens:';
+          heading.textContent = 'Generated Tokens';
           tokenContainer.appendChild(heading);
           
           const display = document.createElement('div');
