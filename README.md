@@ -2,6 +2,8 @@
 
 visualize token routing in mixture-of-experts models
 
+![example](assets/example.gif)
+
 ## Setup
 
 The visualization uses `vite` and `d3`, which requires `Node.js version 18+/20+`.
